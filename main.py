@@ -1,16 +1,8 @@
 import streamlit as st
 from datetime import date
-from dotenv import load_dotenv
-import os
+from config import dog_names, test_structure, num_of_trials
 
 st.set_page_config(page_title="Dog Training Form 🐶", page_icon="🐾")
-
-# Load environment variables
-load_dotenv()
-
-dog_names = os.getenv("DOG_NAMES").split(",")
-test_structure = os.getenv("TEST_STRUCTURE").split(",")
-num_of_trials = int(os.getenv("NUM_OF_TRIALS"))
 
 st.title("טופס אימון כלבים 🐕‍🦺")
 
@@ -30,23 +22,42 @@ dog = st.selectbox(
     options=["בחר", *dog_names]
 )
 
-# Collect all commands for all trials
-all_trials_selected_commands = []
+# Collect all commands + attempts + success checkbox
+all_trials_data = []
 
 for i in range(num_of_trials):
-    st.header(f"שליחה {i+1}:")
-    trial_selected_commands = []
+    st.write(f"### שליחה {i+1}:")
+    trial_data = []
     for j, cmd in enumerate(test_structure):
-        # Make key unique per trial
-        if st.checkbox(cmd, key=f"trial_{i}_cmd_{j}"):
-            trial_selected_commands.append(cmd)
-    all_trials_selected_commands.append(trial_selected_commands)
+        cols = st.columns([1, 3, 2])  # Adjusted for: checkbox | command name | number input
+
+        with cols[0]:
+            performed = st.checkbox("", key=f"trial_{i}_cmd_{j}_check")
+        with cols[1]:
+            st.markdown(f"**{cmd}**")
+        with cols[2]:
+            attempts = st.number_input(
+                label="",
+                min_value=0,
+                step=1,
+                value=0,
+                key=f"trial_{i}_cmd_{j}_attempts"
+            )
+
+        trial_data.append({
+            "command": cmd,
+            "performed": performed,
+            "attempts": attempts
+        })
+    all_trials_data.append(trial_data)
 
 # Submit Button
 if st.button("שלח טופס"):
     if dog == "בחר":
         st.error("בבקשה תבחר כלב 🐶")
-    if not cycle_numbers:
-        st.error("בבקשה תבחר מספר מחזור")
     else:
         st.success("הטופס נשלח בהצלחה! 🚀")
+        st.write("### הפרטים שהוזנו:")
+        st.write(f"**תאריך:** {selected_date}")
+        st.write(f"**מספר מחזור:** {', '.join(cycle_numbers) if cycle_numbers else 'ללא'}")
+        st.write(f"**כלב:** {dog}")
