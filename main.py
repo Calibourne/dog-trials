@@ -47,7 +47,7 @@ def save_submission(all_trials_data, selected_date, cycle_numbers, dog_name):
     os.makedirs("submissions", exist_ok=True)
 
     # Create filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp = selected_date.strftime("%Y%m%d")
     dog_clean = dog_name.replace(" ", "_")
     filename = f"submissions/{timestamp}_{dog_clean}.csv"
 
