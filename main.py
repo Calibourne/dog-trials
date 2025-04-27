@@ -59,29 +59,24 @@ def save_submission(all_trials_data, selected_date, cycle_numbers, dog_name):
 
     return f"s3://{bucket_name}/{s3_path}"
 
-def generate_performance_report(submissions_folder="submissions"):
-    """
-    Generate a performance report based on number of attempts per dog per command.
+@st.cache_data
+def load_all_submissions():
+    """Load all submissions from S3"""
+    response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix="submissions/")
 
-    Args:
-        submissions_folder (str): folder containing submissions
-
-    Returns:
-        pd.DataFrame: pivoted performance report
-    """
-
-    # Read all submissions
-    submission_files = glob.glob(f"{submissions_folder}/*.csv")
-
-    if not submission_files:
-        raise FileNotFoundError("No submission files found.")
+    if "Contents" not in response:
+        raise FileNotFoundError("No submissions found in S3.")
 
     all_data = []
-    for file in submission_files:
-        df = pd.read_csv(file, encoding='utf-8-sig')
-        all_data.append(df)
+    for obj in response["Contents"]:
+        if obj['Key'].endswith('.csv'):
+            s3_object = s3_client.get_object(Bucket=bucket_name, Key=obj['Key'])
+            df = pd.read_csv(s3_object['Body'], encoding='utf-8-sig')
+            all_data.append(df)
 
-    # Merge
+    if not all_data:
+        raise FileNotFoundError("No valid submission files found in S3.")
+
     full_df = pd.concat(all_data, ignore_index=True)
 
     # Defensive rename
@@ -90,33 +85,50 @@ def generate_performance_report(submissions_folder="submissions"):
     if "Command" in full_df.columns:
         full_df.rename(columns={"Command": "פקודה"}, inplace=True)
 
-    # 🧠 REAL success rate per instance
+    full_df['Date'] = pd.to_datetime(full_df['Date'])  # Ensure Date is datetime
+
+    return full_df
+
+def generate_performance_report(full_df, start_date, end_date, selected_dogs):
+    """
+    Generate a report based on preloaded DF, filtered by user selection.
+    """
+
+    # Apply filters
+    filtered_df = full_df[
+        (full_df['Date'] >= pd.to_datetime(start_date)) &
+        (full_df['Date'] <= pd.to_datetime(end_date)) &
+        (full_df['NAME'].isin(selected_dogs))
+    ]
+
+    if filtered_df.empty:
+        raise ValueError("אין נתונים בטווח התאריכים או עבור הכלבים שנבחרו.")
+
+    # Calculate success
     def calculate_instance_success(attempts):
         if attempts == 0:
             return 0
         else:
             return 1 / attempts
 
-    full_df['Instance Success'] = full_df['Attempts'].apply(calculate_instance_success)
+    filtered_df['Instance Success'] = filtered_df['Attempts'].apply(calculate_instance_success)
 
-    # Group by Dog and Command, take the mean of instance success
+    # Group
     grouped = (
-        full_df
+        filtered_df
         .groupby(['NAME', 'פקודה'])
         .agg(mean_success=('Instance Success', 'mean'))
         .reset_index()
     )
 
-    # Format as percentage
     grouped['Success Rate'] = (grouped['mean_success'] * 100).round(2)
 
-    # Pivot table
+    # Pivot
     pivot_table = grouped.pivot(index='NAME', columns='פקודה', values='Success Rate')
-
-    # Beautify
     pivot_table = pivot_table.fillna(0).round(2).astype(str) + '%'
 
     return pivot_table
+
 
 def generate_pdf_in_memory(report_df, title="Performance Report"):
     """
@@ -241,20 +253,48 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
             else:
                 st.warning("אין נתונים לשמירה. אולי לא סומנו פקודות? 😕")
 
-if st.button("צור דו\"ח ביצועים PDF"):
-    try:
-        report = generate_performance_report()
-        st.success("✅ דו\"ח נוצר בהצלחה!")
-        st.dataframe(report)
+with st.expander("דו\"ח ביצועים", expanded=False):
+    # Load all data
+    full_df = load_all_submissions()
 
-        pdf_buffer = generate_pdf_in_memory(report)
+    # Extract available dogs
+    available_dogs = sorted(full_df['NAME'].unique())
 
-        st.download_button(
-            label="📥 הורד את הדו\"ח כקובץ PDF",
-            data=pdf_buffer,
-            file_name=f"performance_report_{datetime.now().strftime('- %d_%B_%Y')}.pdf",
-            mime="application/pdf"
-        )
+    # Extract min/max dates
+    min_date = full_df['Date'].min().date()
+    max_date = full_df['Date'].max().date()
 
-    except Exception as e:
-        st.error(f"❌ שגיאה ביצירת הדו\"ח: {e}")
+    # 🐶 Dog Multi-select
+    selected_dogs = st.multiselect(
+        "בחר כלבים לדו\"ח:",
+        options=available_dogs,
+        default=available_dogs  # Default: select all
+    )
+
+    # 🗓 Date Range
+    st.write("בחר טווח תאריכים:")
+    start_date = st.date_input("מתאריך", min_value=min_date, max_value=max_date, value=min_date)
+    end_date = st.date_input("עד תאריך", min_value=min_date, max_value=max_date, value=max_date)
+
+    if st.button("צור דו\"ח ביצועים"):
+        try:
+            report = generate_performance_report(
+                full_df=full_df,
+                start_date=start_date,
+                end_date=end_date,
+                selected_dogs=selected_dogs
+            )
+            if report.empty:
+                st.warning("אין נתונים לדו\"ח עבור הכלבים שנבחרו בטווח התאריכים שנבחר.")
+
+            pdf_buffer = generate_pdf_in_memory(report)
+
+            st.download_button(
+                label="📥 הורד את הדו\"ח",
+                data=pdf_buffer,
+                file_name=f"performance_report_{datetime.now().strftime('- %d_%B_%Y')}.pdf",
+                mime="application/pdf"
+            )
+
+        except Exception as e:
+            st.error(f"❌ שגיאה ביצירת הדו\"ח: {e}")
