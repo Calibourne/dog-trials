@@ -255,6 +255,7 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
             st.error("בבקשה תבחר כלב 🐶")
         else:
             saved_file = save_submission(
+                training_location=training_location,
                 all_trials_data=all_trials_data,
                 selected_date=selected_date,
                 cycle_numbers=cycle_numbers,
