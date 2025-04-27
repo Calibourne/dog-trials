@@ -6,38 +6,34 @@ from glob import glob
 import matplotlib.pyplot as plt
 import io
 import pandas as pd
-import os
 from datetime import datetime
 
 
-def save_submission(all_trials_data, selected_date, cycle_numbers, dog_name):
+def save_submission(all_trials_data, selected_date, cycle_numbers, dog_name, training_location):
     """
     Save the form submission directly to AWS S3 as CSV.
-
-    Args:
-        all_trials_data (list): list of per-trial data with 'command', 'performed', 'attempts'
-        selected_date (date): selected session date
-        cycle_numbers (list): list of selected cycle numbers
-        dog_name (str): name of the dog
     """
+
     submission_data = []
 
     for idx, trial_cmds in enumerate(all_trials_data):
         for item in trial_cmds:
-            if item["attempts"] > 0 or item["performed"]:
+            if item["attempts"] > 0 or item["performed"] or (item.get("command") == "come" and item.get("come_method")):
                 submission_data.append({
                     "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                     "Date": selected_date.strftime("%Y-%m-%d"),
                     "Cycle Number": ', '.join(cycle_numbers),
                     "Dog Name": dog_name,
+                    "Training Location": training_location,
                     "Trial Number": idx + 1,
                     "Command": item["command"],
                     "Performed": "Yes" if item["performed"] else "No",
-                    "Attempts": item["attempts"]
+                    "Attempts": item["attempts"],
+                    "Come Method": item.get("come_method", "")  # Safe fallback
                 })
 
     if not submission_data:
-        return None  # No useful data to save
+        return None
 
     df = pd.DataFrame(submission_data)
 
@@ -45,7 +41,6 @@ def save_submission(all_trials_data, selected_date, cycle_numbers, dog_name):
     df.to_csv(buffer, index=False, encoding='utf-8-sig')
     buffer.seek(0)
 
-    # File path for S3
     timestamp = selected_date.strftime("%Y%m%d")
     dog_clean = dog_name.replace(" ", "_")
     s3_path = f"submissions/{timestamp}_{dog_clean}.csv"
@@ -194,6 +189,13 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
         options=["בחר", *dog_names]
     )
 
+    training_location = st.radio(
+        "מיקום האימון",
+        options=["במבנה", "בשטח"],
+        horizontal=True,
+        key="training_location"
+    )
+
     st.write("כמה שליחות (cycles) בוצעו?")
     completed_cycles = st.number_input(
         label="מספר שליחות שבוצעו",
@@ -210,8 +212,11 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
     for i in range(completed_cycles):
         st.write(f"### שליחה {i+1}:")
         trial_data = []
+        trial_data = []
+
         for j, cmd in enumerate(test_structure):
             cols = st.columns([1, 3, 2])
+
             with cols[0]:
                 performed = st.checkbox("", key=f"trial_{i}_cmd_{j}_check")
             with cols[1]:
@@ -227,11 +232,19 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
 
             if performed and attempts == 0:
                 st.warning(f"⚠️ שים לב: סימנת 'בוצע' אבל לא ציינת מספר פעמים לפקודה: {cmd}", icon="⚠️")
+            come_method = ""
+            if cmd.lower() == "come":
+                come_method = st.selectbox(
+                    "צורת הקריאה (אופציונלי)",
+                    options=["", "קולי", "שריקה"],
+                    key=f"come_method_trial_{i}_cmd_{j}"
+                )
 
             trial_data.append({
                 "command": cmd,
                 "performed": performed,
-                "attempts": attempts
+                "attempts": attempts,
+                "come_method": come_method  # Will be empty if not "come"
             })
 
         all_trials_data.append(trial_data)
@@ -255,46 +268,49 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
 
 with st.expander("דו\"ח ביצועים", expanded=False):
     # Load all data
-    full_df = load_all_submissions()
+    try:
+        full_df = load_all_submissions()
 
-    # Extract available dogs
-    available_dogs = sorted(full_df['NAME'].unique())
+        # Extract available dogs
+        available_dogs = sorted(full_df['NAME'].unique())
 
-    # Extract min/max dates
-    min_date = full_df['Date'].min().date()
-    max_date = full_df['Date'].max().date()
+        # Extract min/max dates
+        min_date = full_df['Date'].min().date()
+        max_date = full_df['Date'].max().date()
 
-    # 🐶 Dog Multi-select
-    selected_dogs = st.multiselect(
-        "בחר כלבים לדו\"ח:",
-        options=available_dogs,
-        default=available_dogs  # Default: select all
-    )
+        # 🐶 Dog Multi-select
+        selected_dogs = st.multiselect(
+            "בחר כלבים לדו\"ח:",
+            options=available_dogs,
+            default=available_dogs  # Default: select all
+        )
 
-    # 🗓 Date Range
-    st.write("בחר טווח תאריכים:")
-    start_date = st.date_input("מתאריך", min_value=min_date, max_value=max_date, value=min_date)
-    end_date = st.date_input("עד תאריך", min_value=min_date, max_value=max_date, value=max_date)
+        # 🗓 Date Range
+        st.write("בחר טווח תאריכים:")
+        start_date = st.date_input("מתאריך", min_value=min_date, max_value=max_date, value=min_date)
+        end_date = st.date_input("עד תאריך", min_value=min_date, max_value=max_date, value=max_date)
 
-    if st.button("צור דו\"ח ביצועים"):
-        try:
-            report = generate_performance_report(
-                full_df=full_df,
-                start_date=start_date,
-                end_date=end_date,
-                selected_dogs=selected_dogs
-            )
-            if report.empty:
-                st.warning("אין נתונים לדו\"ח עבור הכלבים שנבחרו בטווח התאריכים שנבחר.")
+        if st.button("צור דו\"ח ביצועים"):
+            try:
+                report = generate_performance_report(
+                    full_df=full_df,
+                    start_date=start_date,
+                    end_date=end_date,
+                    selected_dogs=selected_dogs
+                )
+                if report.empty:
+                    st.warning("אין נתונים לדו\"ח עבור הכלבים שנבחרו בטווח התאריכים שנבחר.")
 
-            pdf_buffer = generate_pdf_in_memory(report)
+                pdf_buffer = generate_pdf_in_memory(report)
 
-            st.download_button(
-                label="📥 הורד את הדו\"ח",
-                data=pdf_buffer,
-                file_name=f"performance_report_{datetime.now().strftime('- %d_%B_%Y')}.pdf",
-                mime="application/pdf"
-            )
+                st.download_button(
+                    label="📥 הורד את הדו\"ח",
+                    data=pdf_buffer,
+                    file_name=f"performance_report_{datetime.now().strftime('- %d_%B_%Y')}.pdf",
+                    mime="application/pdf"
+                )
 
-        except Exception as e:
-            st.error(f"❌ שגיאה ביצירת הדו\"ח: {e}")
+            except Exception as e:
+                st.error(f"❌ שגיאה ביצירת הדו\"ח: {e}")
+    except:
+        st.warning("לא נמצאו קבצי הגשה ב-S3. אנא הגש טופס אימון קודם.")
