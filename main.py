@@ -182,15 +182,24 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
         options=["בחר", *dog_names]
     )
 
+    st.write("כמה שליחות (cycles) בוצעו?")
+    completed_cycles = st.number_input(
+        label="מספר שליחות שבוצעו",
+        min_value=1,
+        max_value=num_of_trials,
+        step=1,
+        value=num_of_trials,
+        key="completed_cycles"
+    )
+
     # Collect all commands + attempts + success checkbox
     all_trials_data = []
 
-    for i in range(num_of_trials):
+    for i in range(completed_cycles):
         st.write(f"### שליחה {i+1}:")
         trial_data = []
         for j, cmd in enumerate(test_structure):
-            cols = st.columns([1, 3, 2])  # checkbox | command name | number input
-
+            cols = st.columns([1, 3, 2])
             with cols[0]:
                 performed = st.checkbox("", key=f"trial_{i}_cmd_{j}_check")
             with cols[1]:
@@ -213,18 +222,7 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
                 "attempts": attempts
             })
 
-    all_trials_data.append(trial_data)
-    st.write("### סיכום שליחה:")
-    summary_data = []
-    for trial in all_trials_data:
-        for item in trial:
-            summary_data.append({
-                "Command": item["command"],
-                "Performed": "Yes" if item["performed"] else "No",
-                "Attempts": item["attempts"]
-            })
-    summary_df = pd.DataFrame(summary_data)
-    st.dataframe(summary_df, use_container_width=True)
+        all_trials_data.append(trial_data)
 
     # Submit Button
     if st.button("שלח טופס"):
