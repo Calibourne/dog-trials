@@ -209,43 +209,66 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
     # Collect all commands + attempts + success checkbox
     all_trials_data = []
 
-    for i in range(completed_cycles):
+    for i in range(int(completed_cycles)):
         st.write(f"### שליחה {i+1}:")
         trial_data = []
-        trial_data = []
 
-        for j, cmd in enumerate(test_structure):
+        dynamic_structure = []
+        come_method = ""
+
+        for base_cmd in test_structure:
+            dynamic_structure.append({"command": base_cmd, "read_only": False})
+            if base_cmd.lower() == "come":
+                come_method = st.selectbox(
+                    f"Trial {i+1} - צורת הקריאה ל- Come (אופציונלי)",
+                    options=["", "voice", "whistle"],
+                    key=f"come_method_trial_{i}"
+                )
+                if come_method == "whistle":
+                    dynamic_structure.append({"command": "sit", "read_only": True})  # 🛠 Insert fake sit, mark read-only
+
+        for j, cmd_info in enumerate(dynamic_structure):
+            cmd = cmd_info["command"]
+            read_only = cmd_info["read_only"]
+
             cols = st.columns([1, 3, 2])
 
-            with cols[0]:
-                performed = st.checkbox("", key=f"trial_{i}_cmd_{j}_check")
-            with cols[1]:
-                st.markdown(f"**{cmd}**")
-            with cols[2]:
-                attempts = st.number_input(
-                    label="",
-                    min_value=0,
-                    step=1,
-                    value=0,
-                    key=f"trial_{i}_cmd_{j}_attempts"
-                )
+            if read_only:
+                with cols[0]:
+                    st.markdown("🟰")  # Icon to hint: "no action needed"
+                with cols[1]:
+                    st.markdown(f"**{cmd} (אוטומטי אחרי שריקה)**")
+                with cols[2]:
+                    st.markdown("-")
+                # Save "performed = True", "attempts = 1" silently
+                trial_data.append({
+                    "command": cmd,
+                    "performed": True,
+                    "attempts": 1,
+                    "come_method": "",  # not relevant for fake sit
+                    "fake_sit": True
+                })
+            else:
+                with cols[0]:
+                    performed = st.checkbox("", key=f"trial_{i}_cmd_{j}_check")
+                with cols[1]:
+                    st.markdown(f"**{cmd}**")
+                with cols[2]:
+                    attempts = st.number_input(
+                        label="",
+                        min_value=0,
+                        step=1,
+                        value=0,
+                        key=f"trial_{i}_cmd_{j}_attempts"
+                    )
 
-            if performed and attempts == 0:
-                st.warning(f"⚠️ שים לב: סימנת 'בוצע' אבל לא ציינת מספר פעמים לפקודה: {cmd}", icon="⚠️")
-            come_method = ""
-            if cmd.lower() == "come":
-                come_method = st.selectbox(
-                    "צורת הקריאה (אופציונלי)",
-                    options=["", "voice", "whistle"],
-                    key=f"come_method_trial_{i}_cmd_{j}"
-                )
-
-            trial_data.append({
-                "command": cmd,
-                "performed": performed,
-                "attempts": attempts,
-                "come_method": come_method  # Will be empty if not "come"
-            })
+                trial_data.append({
+                    "command": cmd,
+                    "performed": performed,
+                    "attempts": attempts,
+                    "come_method": come_method if cmd.lower() == "come" else "",
+                    "fake_sit": False
+                })
 
         all_trials_data.append(trial_data)
 
