@@ -191,7 +191,7 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
 
     training_location = st.radio(
         "מיקום האימון",
-        options=["במבנה", "בשטח"],
+        options=["in-building", "outdoor"],
         horizontal=True,
         key="training_location"
     )
@@ -236,7 +236,7 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
             if cmd.lower() == "come":
                 come_method = st.selectbox(
                     "צורת הקריאה (אופציונלי)",
-                    options=["", "קולי", "שריקה"],
+                    options=["", "voice", "whistle"],
                     key=f"come_method_trial_{i}_cmd_{j}"
                 )
 
