@@ -1,10 +1,10 @@
 import streamlit as st
 from datetime import date
 from config import dog_names, test_structure, num_of_trials
-
+from config import s3_client, bucket_name
+from glob import glob
 import matplotlib.pyplot as plt
 import io
-
 import pandas as pd
 import os
 from datetime import datetime
@@ -12,7 +12,7 @@ from datetime import datetime
 
 def save_submission(all_trials_data, selected_date, cycle_numbers, dog_name):
     """
-    Save the form submission to a uniquely named CSV file.
+    Save the form submission directly to AWS S3 as CSV.
 
     Args:
         all_trials_data (list): list of per-trial data with 'command', 'performed', 'attempts'
@@ -20,7 +20,6 @@ def save_submission(all_trials_data, selected_date, cycle_numbers, dog_name):
         cycle_numbers (list): list of selected cycle numbers
         dog_name (str): name of the dog
     """
-
     submission_data = []
 
     for idx, trial_cmds in enumerate(all_trials_data):
@@ -28,7 +27,7 @@ def save_submission(all_trials_data, selected_date, cycle_numbers, dog_name):
             if item["attempts"] > 0 or item["performed"]:
                 submission_data.append({
                     "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "Date": selected_date,
+                    "Date": selected_date.strftime("%Y-%m-%d"),
                     "Cycle Number": ', '.join(cycle_numbers),
                     "Dog Name": dog_name,
                     "Trial Number": idx + 1,
@@ -40,27 +39,25 @@ def save_submission(all_trials_data, selected_date, cycle_numbers, dog_name):
     if not submission_data:
         return None  # No useful data to save
 
-    # Create DataFrame
     df = pd.DataFrame(submission_data)
 
-    # Create directory
-    os.makedirs("submissions", exist_ok=True)
+    buffer = io.StringIO()
+    df.to_csv(buffer, index=False, encoding='utf-8-sig')
+    buffer.seek(0)
 
-    # Create filename
+    # File path for S3
     timestamp = selected_date.strftime("%Y%m%d")
     dog_clean = dog_name.replace(" ", "_")
-    filename = f"submissions/{timestamp}_{dog_clean}.csv"
+    s3_path = f"submissions/{timestamp}_{dog_clean}.csv"
 
-    # Save
-    df.to_csv(filename, index=False, encoding='utf-8-sig')
+    s3_client.put_object(
+        Bucket=bucket_name,
+        Key=s3_path,
+        Body=buffer.getvalue(),
+        ContentType="text/csv"
+    )
 
-    return filename
-
-import pandas as pd
-import glob
-
-import pandas as pd
-import glob
+    return f"s3://{bucket_name}/{s3_path}"
 
 def generate_performance_report(submissions_folder="submissions"):
     """
