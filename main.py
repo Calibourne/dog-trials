@@ -1,7 +1,5 @@
 import streamlit as st
 from datetime import date
-
-import test
 from config import dog_names, num_of_trials
 from config import s3_client, bucket_name
 from glob import glob
