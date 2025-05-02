@@ -43,7 +43,7 @@ def save_submission(all_trials_data, selected_date, cycle_numbers, dog_name, tra
 
     timestamp = selected_date.strftime("%Y%m%d")
     dog_clean = dog_name.replace(" ", "_")
-    s3_path = f"submissions/{timestamp}_{dog_clean}.csv"
+    s3_path = f"submissions/{timestamp}_{dog_clean}_{training_location}.csv"
 
     s3_client.put_object(
         Bucket=bucket_name,
@@ -54,7 +54,7 @@ def save_submission(all_trials_data, selected_date, cycle_numbers, dog_name, tra
 
     return f"s3://{bucket_name}/{s3_path}"
 
-@st.cache_data
+@st.cache_resource
 def load_all_submissions():
     """Load all submissions from S3"""
     response = s3_client.list_objects_v2(Bucket=bucket_name, Prefix="submissions/")
@@ -176,19 +176,12 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
     # Date input
     selected_date = st.date_input("תאריך", value=date.today())
 
-    # Cycle Number - multiple checkbox style
-    st.write("מספר מחזור:")
-    cycle_numbers = []
-    for num in ["1", "2"]:
-        if st.checkbox(num, key=f"cycle_{num}"):
-            cycle_numbers.append(num)
-
     # Dog selection
     dog = st.selectbox(
         "בחר כלב",
         options=["בחר", *dog_names]
     )
-
+    # training location <=> synonymous to cycle numbers
     training_location = st.radio(
         "מיקום האימון",
         options=["in-building", "outdoor"],
@@ -281,7 +274,6 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
                 training_location=training_location,
                 all_trials_data=all_trials_data,
                 selected_date=selected_date,
-                cycle_numbers=cycle_numbers,
                 dog_name=dog
             )
 
