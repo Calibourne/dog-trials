@@ -1,6 +1,8 @@
 import streamlit as st
 from datetime import date
-from config import dog_names, test_structure, num_of_trials
+
+import test
+from config import dog_names, num_of_trials
 from config import s3_client, bucket_name
 from glob import glob
 import matplotlib.pyplot as plt
@@ -8,6 +10,20 @@ import io
 import pandas as pd
 from datetime import datetime
 
+def get_test_templates():
+    """
+    Load test templates from the local directory.
+    """
+    test_files = s3_client.list_objects_v2(Bucket=bucket_name, Prefix="templates/")
+    if "Contents" not in test_files:
+        raise FileNotFoundError("No test templates found in S3.")
+    test_files = [obj['Key'] for obj in test_files["Contents"] if obj['Key'].endswith('.txt')]
+    templates = []
+    for file in test_files:
+        s3_object = s3_client.get_object(Bucket=bucket_name, Key=file)
+        content = s3_object['Body'].read().decode('utf-8')
+        templates.append(content.splitlines())
+    return templates
 
 def save_submission(all_trials_data, selected_date, cycle_numbers, dog_name, training_location):
     """
@@ -54,6 +70,7 @@ def save_submission(all_trials_data, selected_date, cycle_numbers, dog_name, tra
 
     return f"s3://{bucket_name}/{s3_path}"
 
+
 @st.cache_resource
 def load_all_submissions():
     """Load all submissions from S3"""
@@ -83,6 +100,7 @@ def load_all_submissions():
     full_df['Date'] = pd.to_datetime(full_df['Date'])  # Ensure Date is datetime
 
     return full_df
+
 
 def generate_performance_report(full_df, start_date, end_date, selected_dogs):
     """
@@ -199,6 +217,28 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
         key="completed_cycles"
     )
 
+    # Load test templates
+    try:
+        test_structure = get_test_templates()
+    except FileNotFoundError:
+        st.error("לא נמצאו תבניות אימון ב-S3. אנא טען תבניות אימון קודם.")
+        st.stop()
+    # Select test template
+    selected_template = st.selectbox(
+        "בחר תבנית אימון",
+        options=["בחר", *[f"Template {i+1}" for i in range(len(test_structure))]],
+        key="selected_template"
+    )
+    if selected_template != "בחר":
+        test_structure = test_structure[int(selected_template.split()[1]) - 1]
+        st.write("תבנית שנבחרה:")
+        st.dataframe(test_structure)
+    else:
+
+        st.write("לא נבחרה תבנית. אין להגיש את הטופס ללא תבנית.")
+        test_structure = []
+    # Show instructions
+
     # Collect all commands + attempts + success checkbox
     all_trials_data = []
 
@@ -266,21 +306,22 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
         all_trials_data.append(trial_data)
 
     # Submit Button
-    if st.button("שלח טופס"):
-        if dog == "בחר":
-            st.error("בבקשה תבחר כלב 🐶")
-        else:
-            saved_file = save_submission(
-                training_location=training_location,
-                all_trials_data=all_trials_data,
-                selected_date=selected_date,
-                dog_name=dog
-            )
-
-            if saved_file:
-                st.success(f"הטופס נשמר בקובץ: {saved_file} 📄")
+    if len(test_structure) > 0:
+        if st.button("שלח טופס"):
+            if dog == "בחר":
+                st.error("בבקשה תבחר כלב 🐶")
             else:
-                st.warning("אין נתונים לשמירה. אולי לא סומנו פקודות? 😕")
+                saved_file = save_submission(
+                    training_location=training_location,
+                    all_trials_data=all_trials_data,
+                    selected_date=selected_date,
+                    dog_name=dog
+                )
+
+                if saved_file:
+                    st.success(f"הטופס נשמר בקובץ: {saved_file} 📄")
+                else:
+                    st.warning("אין נתונים לשמירה. אולי לא סומנו פקודות? 😕")
 
 with st.expander("דו\"ח ביצועים", expanded=False):
     # Load all data
