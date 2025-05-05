@@ -359,6 +359,12 @@ with st.expander("היסטוריית הגשות", expanded=False):
                        dog_df = dog_df.drop(columns=["Cycle Number", "Timestamp", "NAME"])
                        dog_df['Date'] = pd.to_datetime(dog_df['Date']).dt.strftime('%d/%m/%Y')
                        st.dataframe(dog_df)
+                       st.download_button(
+                            label="📥 הורד את ההיסטוריה",
+                            data=dog_df.to_csv(index=False, encoding='utf-8-sig'),
+                           file_name=f"{dog}_history_{start_date.strftime('%Y%m%d')}_to_{end_date.strftime('%Y%m%d')}.csv",
+                           mime="text/csv"
+                       )
                     else:
                         st.warning(f"אין נתונים להיסטוריה עבור {dog} בטווח התאריכים שנבחר.")
         else:
