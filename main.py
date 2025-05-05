@@ -23,7 +23,7 @@ def get_test_templates():
         templates.append(content.splitlines())
     return templates
 
-def save_submission(all_trials_data, selected_date, cycle_numbers, dog_name, training_location):
+def save_submission(all_trials_data, selected_date, dog_name, training_location):
     """
     Save the form submission directly to AWS S3 as CSV.
     """
@@ -32,19 +32,21 @@ def save_submission(all_trials_data, selected_date, cycle_numbers, dog_name, tra
 
     for idx, trial_cmds in enumerate(all_trials_data):
         for item in trial_cmds:
-            if item["attempts"] > 0 or item["performed"] or (item.get("command") == "come" and item.get("come_method")):
-                submission_data.append({
-                    "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "Date": selected_date.strftime("%Y-%m-%d"),
-                    "Cycle Number": ', '.join(cycle_numbers),
-                    "Dog Name": dog_name,
-                    "Training Location": training_location,
-                    "Trial Number": idx + 1,
-                    "Command": item["command"],
-                    "Performed": "Yes" if item["performed"] else "No",
-                    "Attempts": item["attempts"],
-                    "Come Method": item.get("come_method", "")  # Safe fallback
-                })
+            # item["attempts"] > 0 ==> Skip that for now
+            # item["performed"] == True ==> Skip that for now
+            # if (item.get("command") == "come" and item.get("come_method")):
+            submission_data.append({
+                "Timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "Date": selected_date.strftime("%Y-%m-%d"),
+                # "Cycle Number": ', '.join(cycle_numbers),
+                "Dog Name": dog_name,
+                "Training Location": training_location,
+                "Trial Number": idx + 1,
+                "Command": item["command"],
+                "Performed": "Yes" if item["performed"] else "No",
+                "Attempts": item["attempts"],
+                "Come Method": item.get("come_method", "")  # Safe fallback
+            })
 
     if not submission_data:
         return None
