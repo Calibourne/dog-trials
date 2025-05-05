@@ -322,6 +322,49 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
                 else:
                     st.warning("אין נתונים לשמירה. אולי לא סומנו פקודות? 😕")
 
+with st.expander("היסטוריית הגשות", expanded=False):
+    # Load all data
+    try:
+        full_df = load_all_submissions()
+
+        # Extract available dogs
+        available_dogs = sorted(full_df['NAME'].unique())
+
+        # 🐶 Dog Multi-select
+        selected_dogs = st.multiselect(
+            "בחר כלבים להיסטוריה:",
+            options=available_dogs,
+            default=available_dogs  # Default: select all
+        )
+
+        # 🗓 Date Range
+        st.write("בחר טווח תאריכים:")
+        min_date = full_df['Date'].min().date()
+        max_date = full_df['Date'].max().date()
+        start_date = st.date_input("מתאריך", min_value=min_date, max_value=max_date, value=min_date, key="history_start_date")
+        end_date = st.date_input("עד תאריך", min_value=min_date, max_value=max_date, value=max_date, key="history_end_date")
+
+        if selected_dogs:
+            tabs = st.tabs([f"היסטוריה עבור {dog}" for dog in selected_dogs])
+            for tab, dog in zip(tabs, selected_dogs):
+                with tab:
+                    dog_df = full_df[
+                    (full_df['NAME'] == dog) &
+                    (full_df['Date'] >= pd.to_datetime(start_date)) &
+                    (full_df['Date'] <= pd.to_datetime(end_date))
+                    ]
+                    if not dog_df.empty:
+                       dog_df = dog_df.drop(columns=["Cycle Number", "Timestamp", "NAME"])
+                       dog_df['Date'] = pd.to_datetime(dog_df['Date']).dt.strftime('%d/%m/%Y')
+                       st.dataframe(dog_df)
+                    else:
+                        st.warning(f"אין נתונים להיסטוריה עבור {dog} בטווח התאריכים שנבחר.")
+        else:
+            st.warning("לא נבחרו כלבים להיסטוריה.")
+
+    except FileNotFoundError:
+        st.warning("לא נמצאו קבצי הגשה ב-S3. אנא הגש טופס אימון קודם.")
+
 with st.expander("דו\"ח ביצועים", expanded=False):
     # Load all data
     try:
