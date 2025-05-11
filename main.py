@@ -356,15 +356,21 @@ with st.expander("היסטוריית הגשות", expanded=False):
                     (full_df['Date'] <= pd.to_datetime(end_date))
                     ]
                     if not dog_df.empty:
-                       dog_df = dog_df.drop(columns=["Cycle Number", "Timestamp", "NAME"])
-                       dog_df['Date'] = pd.to_datetime(dog_df['Date']).dt.strftime('%d/%m/%Y')
-                       st.dataframe(dog_df)
-                       st.download_button(
+                        if "Dog Name" in dog_df.columns:
+                            dog_df.drop(columns=["Dog Name"], inplace=True)
+                        if "Cycle Number" in dog_df.columns:
+                            dog_df.drop(columns=["Cycle Number"], inplace=True)
+                        if "Timestamp" in dog_df.columns:
+                            dog_df.drop(columns=["Timestamp"], inplace=True)
+                    #    dog_df = dog_df.drop(columns=["Cycle Number", "Timestamp", "NAME"])
+                        dog_df['Date'] = pd.to_datetime(dog_df['Date']).dt.strftime('%d/%m/%Y')
+                        st.dataframe(dog_df)
+                        st.download_button(
                             label="📥 הורד את ההיסטוריה",
                             data=dog_df.to_csv(index=False, encoding='utf-8-sig'),
-                           file_name=f"{dog}_history_{start_date.strftime('%Y%m%d')}_to_{end_date.strftime('%Y%m%d')}.csv",
-                           mime="text/csv"
-                       )
+                            file_name=f"{dog}_history_{start_date.strftime('%Y%m%d')}_to_{end_date.strftime('%Y%m%d')}.csv",
+                            mime="text/csv"
+                        )
                     else:
                         st.warning(f"אין נתונים להיסטוריה עבור {dog} בטווח התאריכים שנבחר.")
         else:
