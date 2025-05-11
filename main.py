@@ -61,7 +61,7 @@ def save_submission(all_trials_data, selected_date, dog_name, training_location)
 
     timestamp = selected_date.strftime("%Y%m%d")
     dog_clean = dog_name.replace(" ", "_")
-    uuid_str = str(uuid4()).split("-")[0]  # Short UUID
+    uuid_str = str(uuid4())
     s3_path = f"submissions/{timestamp}_{dog_clean}_{training_location}_{uuid_str}.csv"
 
     s3_client.put_object(
