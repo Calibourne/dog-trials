@@ -1,3 +1,4 @@
+import uuid
 import streamlit as st
 from datetime import date
 from config import dog_names, num_of_trials
@@ -7,6 +8,7 @@ import matplotlib.pyplot as plt
 import io
 import pandas as pd
 from datetime import datetime
+from uuid import uuid4
 
 def get_test_templates():
     """
@@ -59,7 +61,8 @@ def save_submission(all_trials_data, selected_date, dog_name, training_location)
 
     timestamp = selected_date.strftime("%Y%m%d")
     dog_clean = dog_name.replace(" ", "_")
-    s3_path = f"submissions/{timestamp}_{dog_clean}_{training_location}.csv"
+    uuid_str = str(uuid4()).split("-")[0]  # Short UUID
+    s3_path = f"submissions/{timestamp}_{dog_clean}_{training_location}_{uuid_str}.csv"
 
     s3_client.put_object(
         Bucket=bucket_name,
@@ -360,8 +363,8 @@ with st.expander("היסטוריית הגשות", expanded=False):
                             dog_df.drop(columns=["Dog Name"], inplace=True)
                         if "Cycle Number" in dog_df.columns:
                             dog_df.drop(columns=["Cycle Number"], inplace=True)
-                        if "Timestamp" in dog_df.columns:
-                            dog_df.drop(columns=["Timestamp"], inplace=True)
+                        # if "Timestamp" in dog_df.columns:
+                        #     dog_df.drop(columns=["Timestamp"], inplace=True)
                     #    dog_df = dog_df.drop(columns=["Cycle Number", "Timestamp", "NAME"])
                         dog_df['Date'] = pd.to_datetime(dog_df['Date']).dt.strftime('%d/%m/%Y')
                         st.dataframe(dog_df)
