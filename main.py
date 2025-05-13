@@ -190,26 +190,7 @@ def generate_pdf_in_memory(report_df, title="Performance Report"):
     return buffer
 
 
-st.set_page_config(page_title="Dog Training Form 🐶", page_icon="🐾")
-with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
-    st.title("טופס אימון כלבים 🐕‍🦺")
-
-    # Date input
-    selected_date = st.date_input("תאריך", value=date.today())
-
-    # Dog selection
-    dog = st.selectbox(
-        "בחר כלב",
-        options=["בחר", *dog_names]
-    )
-    # training location <=> synonymous to cycle numbers
-    training_location = st.radio(
-        "מיקום האימון",
-        options=["in-building", "outdoor"],
-        horizontal=True,
-        key="training_location"
-    )
-
+def obediance_trial():
     st.write("כמה שליחות (cycles) בוצעו?")
     completed_cycles = st.number_input(
         label="מספר שליחות שבוצעו",
@@ -219,27 +200,6 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
         value=num_of_trials,
         key="completed_cycles"
     )
-
-    # Load test templates
-    try:
-        test_structure = get_test_templates()
-    except FileNotFoundError:
-        st.error("לא נמצאו תבניות אימון ב-S3. אנא טען תבניות אימון קודם.")
-        st.stop()
-    # Select test template
-    selected_template = st.selectbox(
-        "בחר תבנית אימון",
-        options=["בחר", *[f"Template {i+1}" for i in range(len(test_structure))]],
-        key="selected_template"
-    )
-    if selected_template != "בחר":
-        test_structure = test_structure[int(selected_template.split()[1]) - 1]
-        st.write("תבנית שנבחרה:")
-        st.dataframe(test_structure)
-    else:
-
-        st.write("לא נבחרה תבנית. אין להגיש את הטופס ללא תבנית.")
-        test_structure = []
     # Show instructions
 
     # Collect all commands + attempts + success checkbox
@@ -307,25 +267,141 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
                 })
 
         all_trials_data.append(trial_data)
-
-    # Submit Button
+    
     if len(test_structure) > 0:
-        if st.button("שלח טופס"):
-            if dog == "בחר":
-                st.error("בבקשה תבחר כלב 🐶")
-            else:
-                saved_file = save_submission(
-                    # cycle_numbers=[f"{i+1}" for i in range(int(completed_cycles))],
-                    training_location=training_location,
-                    all_trials_data=all_trials_data,
-                    selected_date=selected_date,
-                    dog_name=dog
+            if st.button("שלח טופס"):
+                if dog == "בחר":
+                    st.error("בבקשה תבחר כלב 🐶")
+                else:
+                    saved_file = save_submission(
+                        # cycle_numbers=[f"{i+1}" for i in range(int(completed_cycles))],
+                        training_location=training_location,
+                        all_trials_data=all_trials_data,
+                        selected_date=selected_date,
+                        dog_name=dog
+                    )
+
+                    if saved_file:
+                        st.success(f"הטופס נשמר בקובץ: {saved_file} 📄")
+                    else:
+                        st.warning("אין נתונים לשמירה. אולי לא סומנו פקודות? 😕")
+        
+
+st.set_page_config(page_title="Dog Training Form 🐶", page_icon="🐾")
+with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
+    st.title("טופס אימון כלבים 🐕‍🦺")
+
+    # Date input
+    selected_date = st.date_input("תאריך", value=date.today())
+
+    # Dog selection
+    dog = st.selectbox(
+        "בחר כלב",
+        options=["בחר", *dog_names]
+    )
+    # training location <=> synonymous to cycle numbers
+    training_location = st.radio(
+        "מיקום האימון",
+        options=["in-building", "outdoor"],
+        horizontal=True,
+        key="training_location"
+    )
+
+
+    # Load test templates
+    try:
+        test_structure = get_test_templates()
+    except FileNotFoundError:
+        st.error("לא נמצאו תבניות אימון ב-S3. אנא טען תבניות אימון קודם.")
+        st.stop()
+    # Select test template
+    selected_template = st.selectbox(
+        "בחר תבנית אימון",
+        options=["בחר", *[f"תבנית {i+1}" for i in range(len(test_structure))]],
+        key="selected_template"
+    )
+    if selected_template != "בחר":
+        test_structure = test_structure[int(selected_template.split()[1]) - 1]
+        st.write("תבנית שנבחרה:")
+        st.dataframe(test_structure)
+    else:
+        st.error("לא נבחרה תבנית. אין להגיש את הטופס ללא תבנית.")
+        test_structure = []
+    
+    if test_structure:
+        if len(test_structure) > 1:
+            all_trials_data = obediance_trial()
+        else:
+            if test_structure[0].lower() == "sniff":
+                import random
+                num_cycles = st.number_input(
+                    label="מספר  הרצות",
+                    min_value=1,
+                    max_value=100,
+                    step=1,
+                    value=1,
+                    key="sniff_runs"
                 )
 
-                if saved_file:
-                    st.success(f"הטופס נשמר בקובץ: {saved_file} 📄")
-                else:
-                    st.warning("אין נתונים לשמירה. אולי לא סומנו פקודות? 😕")
+                p_for_gen = st.number_input(
+                    label="% שליחות ביקורת",
+                    min_value=0,
+                    max_value=100,
+                    step=1,
+                    value=0,
+                    key="sniff_p_for_gen"
+                )
+
+                if "sniff_trials_df" not in st.session_state or st.button("אפס טבלה"):
+                    data = {
+                        "ביקורת?": [False] * num_cycles,
+                        "סימן?": [False] * num_cycles,
+                        "מספר שליחה": [i + 1 for i in range(num_cycles)]
+                    }
+                    st.session_state.sniff_trials_df = pd.DataFrame(data)
+                    st.session_state.sniff_trials_df["מספר שליחה"] = st.session_state.sniff_trials_df["מספר שליחה"].astype(str)  # Convert to string for display
+                    st.session_state.sniff_trials_df.set_index("מספר שליחה", inplace=True)  # Set as index to make it uneditable
+                    st.session_state.sniff_trials_df = pd.DataFrame(data)
+
+
+                # Randomise ביקורת?
+                if st.button("הגרל שליחות ביקורת"):
+                    df = st.session_state.sniff_trials_df.copy()
+                    n = int(num_cycles * p_for_gen / 100)
+                    random_indices = random.sample(range(num_cycles), n)
+                    df["ביקורת?"] = False  # Reset
+                    for i in random_indices:
+                        df.at[i, "ביקורת?"] = True
+                    st.session_state.sniff_trials_df = df
+
+                # Show editable DataFrame
+                edited_df = st.data_editor(
+                    st.session_state.sniff_trials_df,
+                    num_rows="dynamic",
+                    use_container_width=True,
+                    key="sniff_trials_editor"
+                )
+
+                # Calculate hit rate
+                # Calculate hit rate
+                df = edited_df.copy()
+                total_trials = len(df)
+                false_positives = len(df[(df["ביקורת?"] == True) & (df["סימן?"] == True)])
+                false_negatives = len(df[(df["ביקורת?"] == False) & (df["סימן?"] == False)])
+                hit_rate = ((total_trials - false_positives - false_negatives) / total_trials) * 100
+
+                st.metric("Hit Rate", f"{hit_rate:.2f}%")
+
+                #  download button
+                csv = df.rename(columns={"מספר שליחה": "Trial Number", "סימן?": "Marked", "ביקורת?": "Control"})
+                csv = df.to_csv(index=False, encoding='utf-8-sig')
+                st.download_button(
+                    label="📥 הורד את הטבלה",
+                    data=csv,
+                    file_name=f"sniff_trials_{selected_date.strftime('%Y%m%d')}_{dog.replace(' ', '_')}_{training_location}_{hit_rate:.2f}.csv",
+                    mime="text/csv"
+                )
+        
 
 with st.expander("היסטוריית הגשות", expanded=False):
     # Load all data
