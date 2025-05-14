@@ -18,11 +18,12 @@ def get_test_templates():
     if "Contents" not in test_files:
         raise FileNotFoundError("No test templates found in S3.")
     test_files = [obj['Key'] for obj in test_files["Contents"] if obj['Key'].endswith('.txt')]
-    templates = []
+    templates = {}
     for file in test_files:
         s3_object = s3_client.get_object(Bucket=bucket_name, Key=file)
         content = s3_object['Body'].read().decode('utf-8')
-        templates.append(content.splitlines())
+        file_name = file.split("/")[-1].replace(".txt", "")
+        templates[file_name] = content.splitlines()
     return templates
 
 def save_submission(all_trials_data, selected_date, dog_name, training_location):
@@ -317,11 +318,11 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
     # Select test template
     selected_template = st.selectbox(
         "בחר תבנית אימון",
-        options=["בחר", *[f"תבנית {i+1}" for i in range(len(test_structure))]],
+        options=["בחר", *test_structure.keys()],
         key="selected_template"
     )
     if selected_template != "בחר":
-        test_structure = test_structure[int(selected_template.split()[1]) - 1]
+        test_structure = test_structure[selected_template]
         st.write("תבנית שנבחרה:")
         st.dataframe(test_structure)
     else:
