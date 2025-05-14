@@ -336,7 +336,7 @@ with st.expander("טופס אימון כלבים 🐕‍🦺", expanded=True):
             if test_structure[0].lower() == "sniff":
                 import random
                 num_cycles = st.number_input(
-                    label="מספר  הרצות",
+                    label="מספר  שליחות",
                     min_value=1,
                     max_value=100,
                     step=1,
